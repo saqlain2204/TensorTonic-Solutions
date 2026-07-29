@@ -21,16 +21,28 @@ def multi_head_attention(Q: np.ndarray, K: np.ndarray, V: np.ndarray,
     Compute multi-head attention.
     """
     # Your code here
-    heads = []
+    batch, seq_len, d_model = Q.shape
+    d_k = d_model // num_heads
 
-    for i in range(num_heads):
-        q_i = Q @ W_q[i]
-        k_i = K @ W_k[i]
-        v_i = V @ W_v[i]
+    # Linear projections
+    Q = np.dot(Q, W_q)
+    K = np.dot(K, W_k)
+    V = np.dot(V, W_v)
 
-        head_i = attention(q_i, k_i, v_i)
-        heads.append(head_i)
+    # Split into heads
+    Q = Q.reshape(batch, seq_len, num_heads, d_k).transpose(0, 2, 1, 3)
+    K = K.reshape(batch, seq_len, num_heads, d_k).transpose(0, 2, 1, 3)
+    V = V.reshape(batch, seq_len, num_heads, d_k).transpose(0, 2, 1, 3)
 
-    heads = np.concatenate(heads, axis=-1)
-    return heads @ W_o
+    # Scaled dot-product attention
+    scores = np.matmul(Q, K.transpose(0, 1, 3, 2)) / np.sqrt(d_k)
+    weights = softmax(scores, axis=-1)
+    heads = np.matmul(weights, V)
+
+    # Concatenate heads
+    heads = heads.transpose(0, 2, 1, 3)
+    heads = heads.reshape(batch, seq_len, d_model)
+
+    # Final projection
+    return np.dot(heads, W_o)
     
